@@ -68,8 +68,22 @@ Simply rebuild with the release flag.
 cargo build --release
 ```
 
-## Code Formatting
-The following line will format the entire project
+## Testing
+Run all tests across the workspace:
+```bash
+cargo test --workspace
 ```
+
+Run tests for specific crate / part of workspace:
+```bash
+cargo test -p <crate_name>
+
+# for example
+cargo test -p slippi-user
+```
+
+## Code Formatting
+The following line will format the entire project:
+```bash
 cargo fmt --all --manifest-path=./Cargo.toml
 ```

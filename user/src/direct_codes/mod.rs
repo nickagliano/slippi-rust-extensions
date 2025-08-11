@@ -205,7 +205,7 @@ mod tests {
     use serde_json;
 
     #[test]
-    fn test_legacy_timestamp_parsing() {
+    fn test_legacy_timestamp_deserialization() {
         use serde_json::json;
 
         // This should represent Jan 1, 2022, 00:00:00 UTC
@@ -227,8 +227,7 @@ mod tests {
     }
 
     #[test]
-    fn test_direct_code_serialization_format() {
-        // Test that DirectCode serializes lastPlayed as unix timestamp, not date string
+    fn test_direct_code_serialization_roundtrip() {
         let known_timestamp = 1640995200i64; // 2022-01-01 00:00:00 UTC
         let known_datetime = Utc.timestamp_opt(known_timestamp, 0).unwrap();
 
@@ -240,44 +239,13 @@ mod tests {
         // Serialize to JSON
         let json = serde_json::to_value(&direct_code).unwrap();
 
-        // Verify structure uses camelCase field names
         assert_eq!(json["connectCode"], "TEST#KNOWN");
         assert_eq!(json["lastPlayed"], known_timestamp);
 
-        // Specifically verify lastPlayed is serialized as number, not string
-        assert!(json["lastPlayed"].is_i64(), "lastPlayed should be an i64 unix timestamp");
-        assert!(!json["lastPlayed"].is_string(), "lastPlayed should NOT be a string");
-
-        // Verify we can deserialize it back
+        // Verify we can deserialize it
         let deserialized: DirectCode = serde_json::from_value(json).unwrap();
         assert_eq!(deserialized.connect_code, "TEST#KNOWN");
         assert_eq!(deserialized.last_played.timestamp(), known_timestamp);
-    }
-
-    #[test]
-    fn test_add_or_update_code_timestamp_creation() {
-        use std::path::PathBuf;
-
-        // Create DirectCodes instance with temporary path
-        let temp_path = PathBuf::from("/tmp/test_direct_codes_unit.json");
-        let _ = std::fs::remove_file(&temp_path);
-        let direct_codes = DirectCodes::load(temp_path);
-
-        // Record time before adding code
-        let before = Utc::now();
-
-        // Test adding a code (calls the chrono timestamp creation we migrated)
-        direct_codes.add_or_update_code("TEST#UNIT".to_string());
-
-        let after = Utc::now();
-
-        // Verify code was added
-        assert_eq!(direct_codes.len(), 1);
-        assert_eq!(direct_codes.get(0), "TEST#UNIT");
-
-        // Verify operation was fast (chrono timestamp creation is efficient)
-        let duration = after - before;
-        assert!(duration.num_milliseconds() < 1000, "Timestamp creation took too long");
     }
 
     #[test]
@@ -286,24 +254,23 @@ mod tests {
         use std::thread;
         use std::time::Duration;
 
-        let temp_path = PathBuf::from("/tmp/test_direct_codes_ordering.json");
-        let _ = std::fs::remove_file(&temp_path);
-        let direct_codes = DirectCodes::load(temp_path);
+        let dummy_path = PathBuf::from("");
+        let direct_codes = DirectCodes::load(dummy_path);
 
         // Add codes with slight delays to ensure different timestamps
         direct_codes.add_or_update_code("FRST#001".to_string());
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(Duration::from_millis(5));
         direct_codes.add_or_update_code("SCND#002".to_string());
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(Duration::from_millis(5));
 
-        // Most recent should be first (SECOND was added last)
+        // Most recently added or updated should be first
         assert_eq!(direct_codes.get(0), "SCND#002");
         assert_eq!(direct_codes.get(1), "FRST#001");
 
         // Update the first code, should move it to front
         direct_codes.add_or_update_code("FRST#001".to_string());
 
-        // Now FIRST should be first since it was just updated
+        // Now FIRST should be first
         assert_eq!(direct_codes.get(0), "FRST#001");
         assert_eq!(direct_codes.get(1), "SCND#002");
     }
