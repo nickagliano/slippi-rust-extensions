@@ -16,7 +16,7 @@ mainline = []
 playback = []
 
 [dependencies]
-time = { workspace = true }
+chrono = { workspace = true }
 
 # We disable the "attributes" feature as we don't currently need it and it brings
 # in extra dependencies.

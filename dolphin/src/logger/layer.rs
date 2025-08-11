@@ -5,7 +5,7 @@ use std::ffi::CString;
 use std::fmt::Write;
 use std::os::raw::{c_char, c_int};
 
-use time::OffsetDateTime;
+use chrono::{DateTime, FixedOffset, Local, Timelike};
 use tracing::{Level, Metadata};
 use tracing_subscriber::Layer;
 
@@ -153,18 +153,14 @@ impl DolphinLoggerVisitor {
         let level = metadata.level();
 
         // Dolphin logs in the format of {Minutes}:{Seconds}:{Milliseconds}.
-        let time = OffsetDateTime::now_local().unwrap_or_else(|e| {
-            eprintln!("[dolphin_logger/layer.rs] Failed to get local time: {:?}", e);
+        // Get local time with proper timezone handling
+        let local_time = Local::now();
+        let time: DateTime<FixedOffset> = local_time.with_timezone(local_time.offset());
 
-            // This will only happen if, for whatever reason, the timezone offset
-            // on the current system cannot be determined. Frankly there's bigger issues
-            // than logging if that's the case.
-            OffsetDateTime::now_utc()
-        });
-
+        // Extract time components for Dolphin's log format
         let mins = time.minute();
         let secs = time.second();
-        let millsecs = time.millisecond();
+        let millsecs = time.nanosecond() / 1_000_000; // No milliseconds available in chrono
 
         // We want 0-padded mins/secs, but we don't need the entire formatting infra
         // that time would use - and this is simple enough to just do in a few lines.
