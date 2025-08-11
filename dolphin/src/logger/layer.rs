@@ -154,29 +154,15 @@ impl DolphinLoggerVisitor {
 
         // Dolphin logs in the format of {Minutes}:{Seconds}:{Milliseconds}.
         // Get local time with proper timezone handling
-        let local_time = Local::now();
+        let local_time: DateTime<Local> = Local::now();
         let time: DateTime<FixedOffset> = local_time.with_timezone(local_time.offset());
 
-        // Extract time components for Dolphin's log format
-        let mins = time.minute();
-        let secs = time.second();
-        let millsecs = time.nanosecond() / 1_000_000; // No milliseconds available in chrono
+        // Extract milliseconds for Dolphin's log format (chrono doesn't have milliseconds API)
+        let milliseconds: u32 = time.nanosecond() / 1_000_000;
 
-        // We want 0-padded mins/secs, but we don't need the entire formatting infra
-        // that time would use - and this is simple enough to just do in a few lines.
-        let mp = match mins < 10 {
-            true => "0",
-            false => "",
-        };
+        let formatted_time_string: String = time.format("%M:%S").to_string() + &format!(":{}", milliseconds);
 
-        let sp = match secs < 10 {
-            true => "0",
-            false => "",
-        };
-
-        Self(format!(
-            "{mp}{mins}:{sp}{secs}:{millsecs} {file}:{line} {level}[{log_type}]: "
-        ))
+        Self(format!("{} {file}:{line} {level}[{log_type}]: ", formatted_time_string))
     }
 
     /// The Dolphin log window needs a newline attached to the end, so we just write one
